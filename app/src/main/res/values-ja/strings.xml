@@ -79,7 +79,7 @@
   <string name="muted_history">ミュート設定</string>
   <string name="app_settings">設定</string>
   <string name="full_about_app">このアプリについて</string>
-  <string name="no_mail_address">メールアドレスが未設定です</string>
+  <string name="no_mail_address">メールアドレスが設定されていません</string>
   <string name="shaft_hint">Shaft のヒント</string>
   <string name="you_have_download_plan">まだダウンロードが完了していません。本当に終了しますか？</string>
   <string name="sure">はい</string>
@@ -125,7 +125,7 @@
   <string name="single_download_task">順番にダウンロード（ファイルの順序を維持します）</string>
   <string name="double_stagger_data">フィードを2列にする</string>
   <string name="show_like_button">一覧ページに「お気に入り」ボタンを表示</string>
-  <string name="slide_down_endless">関連作品を無限に表示（重複する可能性あり）</string>
+  <string name="slide_down_endless">関連作品を無限に表示（重複する場合あり）</string>
   <string name="other_settings">その他</string>
   <string name="search_result_filter">ブックマーク数で検索結果をフィルター</string>
   <string name="language">言語</string>
@@ -282,7 +282,7 @@
   <string name="string_114">ブックマーク</string>
   <string name="string_115">0.00 KB / 不明なサイズ</string>
   <string name="string_116">作品ID</string>
-  <string name="string_117">ファイル名が重複してダウンロードに失敗する可能性があるため、必ず選択してください。</string>
+  <string name="string_117">ファイル名が重複してダウンロードに失敗する場合があるため、必ず選択してください。</string>
   <string name="string_119">ミュート解除</string>
   <string name="string_120">コピー</string>
   <string name="string_121">表示</string>
@@ -413,11 +413,11 @@
   <string name="string_253">すべての履歴を削除しますか？</string>
   <string name="string_254">削除できる履歴はありません</string>
   <string name="string_255">履歴をすべて削除します</string>
-  <string name="string_256">シリーズ小説の観覧は未サポートです</string>
+  <string name="string_256">シリーズ小説の観覧はサポートされていません</string>
   <string name="string_257">シリーズ小説</string>
   <string name="string_258">変更なし</string>
   <string name="string_259">5MB より大きな画像は使用できません。この画像のサイズ：</string>
-  <string name="string_260">未ログイン状態です</string>
+  <string name="string_260">ログインしていません</string>
   <string name="string_261">編集しました</string>
   <string name="string_262">画像を選択できませんでした</string>
   <string name="string_263">その他：</string>
@@ -477,7 +477,7 @@
   <string name="string_327">停止</string>
   <string name="string_328">タスクを削除</string>
   <string name="string_329">10以下のAndroidバージョンではフォルダーを変更できません。</string>
-  <string name="string_330">未設定</string>
+  <string name="string_330">設定していません</string>
   <string name="r_eighteen_weekly_rank">今週の R-18</string>
   <string name="r_eighteen_male_rank">男性向け R-18</string>
   <string name="r_eighteen_female_rank">女性向け R-18</string>
@@ -579,7 +579,7 @@
   <string name="string_420">バックアップ</string>
   <string name="string_421">復元</string>
   <string name="string_422">プロフィール</string>
-  <string name="string_423">履歴もバックアップしますか？（ファイルサイズが非常に大きくなる可能性があります）</string>
+  <string name="string_423">履歴もバックアップしますか？（ファイルサイズが非常に大きくなる場合があります）</string>
   <string name="string_425">検索方法を選択（クリップボード）</string>
   <string name="string_424">検索方法を選択</string>
   <string name="string_426">ナビゲーションバーの初期位置</string>
