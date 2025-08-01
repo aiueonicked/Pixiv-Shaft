@@ -769,4 +769,12 @@
     <string name="background_chosen_from_gallary">从相册选择</string>
     <string name="background_random_from_favorites">从我的收藏随机</string>
     <string name="twice_back_will_close_app">再次返回退出软件</string>
+    <string name="favorite_user">特别关注</string>
+    <string name="favorite_user_count">共%d条记录</string>
+    <string name="remove_favorite_user">移除特别关注</string>
+    <string name="add_favorite_user">添加到特别关注</string>
+    <string name="title">标题</string>
+    <string name="description">简介</string>
+    <string name="main_text">正文</string>
+    <string name="browse_history_count">共%d条记录</string>
 </resources>

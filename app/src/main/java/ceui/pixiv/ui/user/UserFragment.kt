@@ -84,11 +84,11 @@ class UserFragment : PixivFragment(R.layout.fragment_user), ViewPagerFragment, S
             binding.naviMore.setOnClick {
                 showActionMenu {
                     if (isNowFavorite == true) {
-                        add(MenuItem("移除特别关注") {
+                        add(MenuItem(getString(R.string.remove_favorite_user)) {
                             requireEntityWrapper().removeFavoriteUser(context, user)
                         })
                     } else {
-                        add(MenuItem("添加到特别关注") {
+                        add(MenuItem(getString(R.string.add_favorite_user)) {
                             requireEntityWrapper().addUserToFavorite(context, user)
                         })
                     }

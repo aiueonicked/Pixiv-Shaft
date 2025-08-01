@@ -105,11 +105,11 @@ class ArtworkViewModel(
         val result = mutableListOf<ListItemHolder>()
         val images = getGalleryHolders(illust, MainScope(), taskPool)
         result.addAll(images ?: listOf())
-        result.add(RedSectionHeaderHolder("标题"))
+        result.add(RedSectionHeaderHolder(context.getString(R.string.title)))
         result.add(ArtworkInfoHolder(illustId))
         result.add(RedSectionHeaderHolder(context.getString(R.string.string_432)))
         result.add(UserInfoHolder(illust.user?.id ?: 0L))
-        result.add(RedSectionHeaderHolder("简介"))
+        result.add(RedSectionHeaderHolder(context.getString(R.string.main_text)))
         result.add(ArtworkCaptionHolder(illustId))
         result.add(
             RedSectionHeaderHolder(

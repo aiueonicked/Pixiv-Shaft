@@ -108,15 +108,14 @@ class MineProfileFragment : PixivFragment(R.layout.fragment_pixiv_list) {
                         )
                     },
                     TabCellHolder(
-                        "特别关注",
-                        extraInfo = "共${favoriteUserCount}条记录"
+                        getString(R.string.favorite_user),
+                        extraInfo = getString(R.string.favorite_user_count, favoriteUserCount)
                     ).onItemClick {
                         pushFragment(
                             R.id.navigation_view_history,
                             ViewHistoryFragmentArgs(RecordType.FAVORITE_USER).toBundle()
                         )
                     },
-
                     TabCellHolder(getString(R.string.the_latest_pixiv_artworks)).onItemClick {
                         pushFragment(
                             R.id.navigation_common_viewpager,
@@ -137,7 +136,7 @@ class MineProfileFragment : PixivFragment(R.layout.fragment_pixiv_list) {
                     },
                     TabCellHolder(
                         getString(R.string.browse_history),
-                        extraInfo = "共${historyCount}条记录"
+                        extraInfo = getString(R.string.browse_history_count, historyCount)
                     ).onItemClick {
                         pushFragment(
                             R.id.navigation_common_viewpager,

@@ -47,9 +47,9 @@ class NovelTextViewModel(
         result.add(NovelHeaderHolder(novelId))
         result.add(RedSectionHeaderHolder(context.getString(R.string.string_432)))
         result.add(UserInfoHolder(ObjectPool.get<Novel>(novelId).value?.user?.id ?: 0L))
-        result.add(RedSectionHeaderHolder("简介"))
+        result.add(RedSectionHeaderHolder(context.getString(R.string.description)))
         result.add(NovelCaptionHolder(novelId))
-        result.add(RedSectionHeaderHolder("正文"))
+        result.add(RedSectionHeaderHolder(context.getString(R.string.string_433)))
         result.add(SpaceHolder())
 
         wNovel?.let {
