@@ -235,7 +235,7 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
 
                 // 如果滑动距离小于阈值，判定为点击
                 if (distanceX <= TOUCH_SLOP && distanceY <= TOUCH_SLOP) {
-                    triggerTouchOnce(endX.toInt(), endY.toInt())
+                    // triggerTouchOnce(endX.toInt(), endY.toInt())
                 }
             }
         }
