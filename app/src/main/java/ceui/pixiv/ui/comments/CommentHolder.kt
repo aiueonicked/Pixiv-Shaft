@@ -92,6 +92,11 @@ class CommentViewHolder(bd: CellCommentBinding) :
                 ?.onClickDeleteComment(sender, holder.comment, 0)
         }
 
+        binding.translate.setOnClick { sender ->
+            sender.findActionReceiverOrNull<CommentActionReceiver>()
+                ?.onClickTranslate(sender, holder.comment)
+        }
+
         binding.commentTime.text = DateParse.displayCreateDate(holder.comment.date)
 
         binding.showReply.isVisible =

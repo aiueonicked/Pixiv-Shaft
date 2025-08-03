@@ -1,11 +1,14 @@
 package ceui.pixiv.ui.comments
 
 import androidx.lifecycle.MutableLiveData
+import ceui.lisa.repo.TranslateTextRepo
 import ceui.loxia.Client
 import ceui.loxia.Comment
 import ceui.loxia.CommentResponse
 import ceui.loxia.ObjectType
 import ceui.pixiv.ui.common.DataSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 class CommentsDataSource(
@@ -36,6 +39,8 @@ class CommentsDataSource(
     val editingComment = MutableLiveData<String>()
     val replyToComment = MutableLiveData<Comment?>()
     val replyParentComment = MutableLiveData<Long?>()
+    private val translateTextRepo = TranslateTextRepo()
+
 
     suspend fun showMoreReply(commentId: Long) {
         val resp = Client.appApi.getIllustReplyComments(args.objectType, commentId)
@@ -49,7 +54,7 @@ class CommentsDataSource(
         }
     }
 
-    private fun updateItem(id: Long, update: (CommentHolder) -> CommentHolder) {
+    private suspend fun updateItem(id: Long, update: suspend (CommentHolder) -> CommentHolder) {
         val itemHolders = pickItemHolders()
         itemHolders.value?.let { currentHolders ->
             val index = currentHolders.indexOfFirst { it.getItemId() == id }
@@ -60,7 +65,9 @@ class CommentsDataSource(
                     val updatedHolders = currentHolders.toMutableList().apply {
                         set(index, updated)
                     }
-                    itemHolders.value = updatedHolders
+                    withContext(Dispatchers.Main) {
+                        itemHolders.value = updatedHolders
+                    }
                 } catch (ex: Exception) {
                     Timber.e(ex)
                 }
@@ -131,5 +138,54 @@ class CommentsDataSource(
             itemHolders.value = existing
             updateRefreshState()
         }
+    }
+
+    suspend fun translateComment(commentId: Long) {
+        val itemHolders = pickItemHolders()
+        val currentHolders = itemHolders.value ?: return
+        val holderIndex = currentHolders.indexOfFirst { it.getItemId() == commentId }
+        if (holderIndex == -1) return
+
+        val holder = currentHolders[holderIndex] as CommentHolder
+        val originalComment = holder.comment.comment
+        var translatedComment = ""
+
+        translateTextRepo.translate(
+            originalComment,
+            onResult = { newText ->
+                translatedComment += newText
+                val newHolders = itemHolders.value?.toMutableList()
+                if (newHolders != null) {
+                    val newHolder = CommentHolder(
+                        comment = holder.comment.copy(comment = translatedComment),
+                        illustArthurId = holder.illustArthurId,
+                        childComments = holder.childComments
+                    )
+                    val index = newHolders.indexOfFirst { it.getItemId() == commentId }
+                    if (index != -1) {
+                        newHolders[index] = newHolder
+                        itemHolders.postValue(newHolders)
+                    }
+                }
+            },
+            onError = { error ->
+                val newHolders = itemHolders.value?.toMutableList()
+                if (newHolders != null) {
+                    val newHolder = CommentHolder(
+                        comment = holder.comment.copy(comment = "Translation Error: $error"),
+                        illustArthurId = holder.illustArthurId,
+                        childComments = holder.childComments
+                    )
+                    val index = newHolders.indexOfFirst { it.getItemId() == commentId }
+                    if (index != -1) {
+                        newHolders[index] = newHolder
+                        itemHolders.postValue(newHolders)
+                    }
+                }
+            },
+            onComplete = {
+
+            }
+        )
     }
 }

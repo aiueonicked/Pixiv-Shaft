@@ -86,6 +86,11 @@ class NovelTextFragment : PixivFragment(R.layout.fragment_pixiv_list), FitsSyste
                             }
                         }
                     )
+                    add(
+                        MenuItem(getString(R.string.translate)) {
+                            textModel.translateNovel()
+                        }
+                    )
                 }
             }
         }

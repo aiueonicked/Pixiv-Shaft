@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ceui.lisa.activities.Shaft
 import ceui.lisa.fragments.WebNovelParser
+import ceui.lisa.repo.TranslateTextRepo
 import ceui.lisa.utils.Common
 import ceui.loxia.Client
 import ceui.loxia.Novel
@@ -31,6 +32,8 @@ class NovelTextViewModel(
 
     private val _webNovel = MutableLiveData<WebNovel>()
     val webNovel: LiveData<WebNovel> = _webNovel
+
+    private val translateRepo = TranslateTextRepo()
 
     init {
         refresh(RefreshHint.InitialLoad)
@@ -68,5 +71,58 @@ class NovelTextViewModel(
         _refreshState.value = RefreshState.LOADED(
             hasContent = true, hasNext = false
         )
+    }
+
+    fun translateNovel() {
+        val originalText = webNovel.value?.text
+        if (originalText.isNullOrBlank()) {
+            return
+        }
+
+        viewModelScope.launch {
+            val currentHolders = _itemHolders.value.orEmpty()
+            val context = Shaft.getContext()
+
+            val headerEndIndex = currentHolders.indexOfFirst {
+                it is RedSectionHeaderHolder && it.title == context.getString(R.string.string_433)
+            }
+            if (headerEndIndex == -1) return@launch
+            val headers = currentHolders.take(headerEndIndex + 2)
+
+            val translatingList = headers.toMutableList().apply {
+                add(NovelTextHolder(context.getString(R.string.translating), Common.getNovelTextColor()))
+            }
+            _itemHolders.value = translatingList
+
+            val fullTranslatedText = StringBuilder()
+
+            translateRepo.translate(
+                text = originalText,
+                onResult = { partialResult ->
+                    fullTranslatedText.append(partialResult)
+                    val newTextHolders = fullTranslatedText.toString().split('\n').map { line ->
+                        NovelTextHolder(line, Common.getNovelTextColor())
+                    }
+                    _itemHolders.postValue(headers + newTextHolders)
+                },
+                onError = { errorMsg ->
+                    _itemHolders.postValue(headers.toMutableList().apply {
+                        add(NovelTextHolder("${context.getString(R.string.translation_error)} $errorMsg", Common.getNovelTextColor()))
+                    })
+                },
+                onComplete = {
+                    val finalList = (_itemHolders.value ?: headers).toMutableList()
+                    finalList.add(SpaceHolder())
+                    finalList.add(NovelTextHolder("<===== End =====>", Common.getNovelTextColor()))
+                    finalList.add(SpaceHolder())
+                    _itemHolders.postValue(finalList)
+                }
+            )
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        translateRepo.cancel()
     }
 }

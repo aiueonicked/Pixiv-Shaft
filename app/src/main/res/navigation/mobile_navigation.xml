@@ -521,6 +521,10 @@
         <argument
             android:name="title"
             app:argType="string" />
-
     </fragment>
+
+    <fragment
+        android:id="@+id/navigation_translation_settings"
+        android:name="ceui.pixiv.ui.translation.TranslationFragment"
+        tools:layout="@layout/fragment_pixiv_list" />
 </navigation>

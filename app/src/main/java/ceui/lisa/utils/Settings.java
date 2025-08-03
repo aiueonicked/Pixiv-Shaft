@@ -49,6 +49,14 @@ public class Settings {
 
     private int lineCount = 2;
 
+    private int translationMethod = 0;
+    private String llmPrompt = "";
+    private String llmIpAddress = "";
+    private String llmModelPath = "";
+    private String modelName = "";
+    private double llmTemperature = 0.4;
+    private int splitTextThreshold = 3000;
+
     public int getLineCount() {
         return lineCount;
     }
@@ -658,4 +666,50 @@ public class Settings {
     public void setIllustDetailKeepScreenOn(boolean illustDetailKeepScreenOn) {
         this.illustDetailKeepScreenOn = illustDetailKeepScreenOn;
     }
+
+    public int getTranslationMethod() { return this.translationMethod; }
+
+    public void setTranslationMethod(int translationWay) {
+        this.translationMethod = translationWay;
+    }
+
+    public String getLlmPrompt() {
+        return llmPrompt;
+    }
+
+    public void setLlmPrompt(String llmPrompt) {
+        this.llmPrompt = llmPrompt;
+    }
+
+    public String getLlmIpAddress() {
+        return llmIpAddress;
+    }
+
+    public void setLlmIpAddress(String llmIpAddress) {
+        this.llmIpAddress = llmIpAddress;
+    }
+
+    public String getLlmModelPath() {
+        return llmModelPath;
+    }
+
+    public void setLlmModelPath(String llmModelPath) {
+        this.llmModelPath = llmModelPath;
+    }
+
+    public String getModelName() {
+        return modelName;
+    }
+
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
+
+    public int getSplitTextThreshold() { return splitTextThreshold; }
+
+    public void setSplitTextThreshold(int splitTextThreshold) { this.splitTextThreshold = splitTextThreshold; }
+
+    public double getLlmTemperature() { return llmTemperature; }
+
+    public void setLlmTemperature(double llmTemperature) { this.llmTemperature = llmTemperature; }
 }

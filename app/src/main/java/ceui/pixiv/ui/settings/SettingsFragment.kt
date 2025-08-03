@@ -126,6 +126,21 @@ class SettingsFragment : PixivFragment(R.layout.fragment_pixiv_list), LogOutActi
                         }
                     },
 
+                    TabCellHolder(
+                        getString(R.string.translate),
+                        extraInfo = if (Shaft.sSettings.translationMethod == 0){
+                            "Using LLM on Android"
+                        }else if(Shaft.sSettings.translationMethod == 1){
+                            "Using LLM on PC with Local API"
+                        }else{
+                            "Using ML kit"
+                        }
+                    ).onItemClick {
+                        pushFragment(
+                            R.id.navigation_translation_settings,
+                        )
+                    },
+
                     LogOutHolder()
                 )
             )

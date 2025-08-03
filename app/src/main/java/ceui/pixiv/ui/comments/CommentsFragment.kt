@@ -105,6 +105,12 @@ class CommentsFragment : PixivFragment(R.layout.fragment_pixiv_list), CommentAct
         }
     }
 
+    override fun onClickTranslate(sender: ProgressTextButton, comment: Comment) {
+        launchSuspend(sender) {
+            dataSource.translateComment(comment.id)
+        }
+    }
+
     companion object {
         fun newInstance(
             objectId: Long,
@@ -127,4 +133,6 @@ interface CommentActionReceiver : UserActionReceiver {
     fun onClickComment(comment: Comment)
 
     fun onClickDeleteComment(sender: ProgressTextButton, comment: Comment, parentCommentId: Long)
+
+    fun onClickTranslate(sender: ProgressTextButton, comment: Comment)
 }
