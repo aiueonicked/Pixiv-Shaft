@@ -1,7 +1,13 @@
 package ceui.lisa.repo
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import ceui.lisa.activities.Shaft
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
@@ -11,22 +17,35 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
 
 class TranslateTextRepo {
 
     @Volatile
     private var isCancelled = false
     private var currentCall: Call? = null
+    private var llmInference: LlmInference? = null
+    private var currentModelUri: String? = null
+
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.SECONDS)
+            .build()
+    }
 
     fun cancel() {
         isCancelled = true
         currentCall?.cancel()
+        cleanupOnDevice()
     }
 
     /**
-     * Processes text in a streaming manner using the LM Studio API.
+     * Processes text in a streaming manner.
+     * Chooses between on-device AI and LM Studio API based on settings.
      * Automatically splits long text and sends it sequentially.
      * @param text The text to be processed.
      * @param onResult A callback that is invoked each time a new chunk of text arrives.
@@ -35,49 +54,58 @@ class TranslateTextRepo {
      */
     suspend fun translate(
         text: String?,
+        context: Context,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
         onComplete: () -> Unit
     ) {
-        if (Shaft.sSettings.translationMethod == 0) {
-            onError("TODO: This method is not implemented yet.")
-            return
-        }
-
         if (text.isNullOrEmpty()) {
             onComplete()
             return
         }
 
         isCancelled = false
+        val useOnDevice = Shaft.sSettings.translationMethod == 0
 
         withContext(Dispatchers.IO) {
-            var remainingText = text
-            var isFirstChunk = true
-            var anErrorOccurred = false
+            try {
+                var remainingText = text
+                var anErrorOccurred = false
 
-            while (remainingText!!.isNotEmpty() && !anErrorOccurred && !isCancelled) {
-                val (chunk, rest) = splitText(remainingText, Shaft.sSettings.splitTextThreshold)
+                while (remainingText!!.isNotEmpty() && !anErrorOccurred && !isCancelled) {
+                    val (chunk, rest) = splitText(remainingText, Shaft.sSettings.splitTextThreshold)
 
-                if (!isFirstChunk) {
-                    onResult("\n\n---\n\n")
-                }
-                isFirstChunk = false
-
-                streamTranslateChunk(
-                    text = chunk,
-                    onResult = onResult,
-                    onError = { errorMsg ->
-                        onError(errorMsg)
-                        anErrorOccurred = true
+                    if (useOnDevice) {
+                        streamTranslateChunkOnDevice(
+                            context = context,
+                            text = chunk,
+                            onResult = onResult,
+                            onError = { errorMsg ->
+                                onError(errorMsg)
+                                anErrorOccurred = true
+                            }
+                        )
+                    } else {
+                        streamTranslateChunk(
+                            text = chunk,
+                            onResult = onResult,
+                            onError = { errorMsg ->
+                                onError(errorMsg)
+                                anErrorOccurred = true
+                            }
+                        )
                     }
-                )
 
-                remainingText = rest
-            }
+                    remainingText = rest
+                }
 
-            if (!anErrorOccurred && !isCancelled) {
-                onComplete()
+                if (!anErrorOccurred && !isCancelled) {
+                    onComplete()
+                }
+            } finally {
+                if (useOnDevice) {
+                    cleanupOnDevice()
+                }
             }
         }
     }
@@ -88,7 +116,7 @@ class TranslateTextRepo {
         }
 
         val sub = text.substring(0, maxLength)
-        val splitIndex = sub.lastIndexOfAny(charArrayOf('。', '、', '.', ',', '!', '?', '\n'))
+        val splitIndex = sub.lastIndexOfAny(charArrayOf('。', '.', '!', '?', '\n'))
 
         if (splitIndex != -1) {
             val chunk = text.substring(0, splitIndex + 1)
@@ -101,6 +129,146 @@ class TranslateTextRepo {
         return Pair(chunk, rest)
     }
 
+    private fun cleanupOnDevice() {
+        llmInference?.close()
+        llmInference = null
+        currentModelUri = null
+    }
+
+    private fun getFileNameFromUri(context: Context, uri: Uri): String? {
+        var fileName: String? = null
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    fileName = cursor.getString(nameIndex)
+                }
+            }
+        }
+        return fileName
+    }
+
+    private suspend fun getLocalModelPath(context: Context, modelUriString: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val modelUri = Uri.parse(modelUriString)
+            val fileName = getFileNameFromUri(context, modelUri) ?: return@withContext null
+
+            val modelsDir = File(context.filesDir, "models")
+            if (!modelsDir.exists()) {
+                modelsDir.mkdirs()
+            }
+
+            val destinationFile = File(modelsDir, fileName)
+
+            if (destinationFile.exists()) {
+                return@withContext destinationFile.absolutePath
+            }
+
+            context.contentResolver.openInputStream(modelUri)?.use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            destinationFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+
+    private suspend fun streamTranslateChunkOnDevice(
+        context: Context,
+        text: String,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (isCancelled) return
+
+        try {
+            val modelUriString = Shaft.sSettings.llmModelPath
+            if (modelUriString.isNullOrEmpty()) {
+                onError("On-device model path is not set in settings.")
+                return
+            }
+
+            if (llmInference == null || currentModelUri != modelUriString) {
+                cleanupOnDevice()
+                currentModelUri = modelUriString
+
+                val localModelPath = getLocalModelPath(context, modelUriString)
+
+                if (localModelPath == null) {
+                    onError("Failed to copy or access the on-device model file.")
+                    cleanupOnDevice()
+                    return
+                }
+
+                val options = LlmInference.LlmInferenceOptions.builder()
+                    .setModelPath(localModelPath)
+                    .setMaxTokens(768)
+                    .setPreferredBackend(LlmInference.Backend.CPU)
+                    .build()
+                llmInference = LlmInference.createFromOptions(context, options)
+            }
+        } catch (e: Exception) {
+            val errorMessage = e.message ?: "Unknown error during model initialization"
+            onError("Failed to initialize on-device model: $errorMessage")
+            cleanupOnDevice()
+            return
+        }
+
+        val engine = llmInference ?: run {
+            onError("On-device inference engine is not available.")
+            return
+        }
+
+        suspendCancellableCoroutine<Unit> { continuation ->
+            var session: LlmInferenceSession? = null
+
+            continuation.invokeOnCancellation {
+            }
+
+            try {
+                val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                    .setTemperature(Shaft.sSettings.llmTemperature.toFloat())
+                    .setTopK(40)
+                    .setTopP(1.0f)
+                    .build()
+                session = LlmInferenceSession.createFromOptions(engine, sessionOptions)
+
+                val resultListener = fun(partialResult: String, done: Boolean) {
+                    if (isCancelled || !continuation.isActive) {
+                        if(done) session?.close()
+                        return
+                    }
+
+                    onResult(partialResult)
+
+                    if (done) {
+                        session?.close()
+                        if (continuation.isActive) {
+                            continuation.resume(Unit)
+                        }
+                    }
+                }
+
+                val fullPrompt = "${Shaft.sSettings.llmPrompt}\n\n$text"
+
+                session.addQueryChunk(fullPrompt)
+                session.generateResponseAsync(resultListener)
+
+            } catch (e: Exception) {
+                val errorMessage = e.message ?: "Unknown error during on-device inference"
+                onError(errorMessage)
+                session?.close()
+                if (continuation.isActive) {
+                    continuation.resume(Unit)
+                }
+            }
+        }
+    }
+
     private suspend fun streamTranslateChunk(
         text: String,
         onResult: (String) -> Unit,
@@ -110,9 +278,7 @@ class TranslateTextRepo {
         val llmPrompt = Shaft.sSettings.llmPrompt
         val llmTemperature = Shaft.sSettings.llmTemperature
         val modelName = Shaft.sSettings.modelName
-        val client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.SECONDS)
-            .build()
+        val client = httpClient
         val url = "http://$ipAddress/v1/chat/completions"
 
         val jsonBody = JSONObject().apply {

@@ -1,5 +1,6 @@
 package ceui.pixiv.ui.comments
 
+import android.content.Context
 import androidx.lifecycle.MutableLiveData
 import ceui.lisa.repo.TranslateTextRepo
 import ceui.loxia.Client
@@ -12,6 +13,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 class CommentsDataSource(
+    private val context: Context,
     private val args: CommentsFragmentArgs,
     private val childCommentsMap: HashMap<Long, List<Comment>> = hashMapOf()
 ) : DataSource<Comment, CommentResponse>(
@@ -152,6 +154,7 @@ class CommentsDataSource(
 
         translateTextRepo.translate(
             originalComment,
+            context,
             onResult = { newText ->
                 translatedComment += newText
                 val newHolders = itemHolders.value?.toMutableList()

@@ -1,10 +1,16 @@
 package ceui.pixiv.ui.translation
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.text.InputType
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import ceui.lisa.R
 import ceui.lisa.activities.Shaft
@@ -24,6 +30,23 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
     private val binding by viewBinding(FragmentPixivListBinding::bind)
     private val adapter by lazy { setUpCustomAdapter(binding, ListMode.VERTICAL_TABCELL) }
 
+    private val modelPathLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let {
+            try {
+                requireActivity().contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                Shaft.sSettings.llmModelPath = it.toString()
+                Local.setSettings(Shaft.sSettings)
+                refreshList()
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                Toast.makeText(requireContext(), getString(R.string.access_denied), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     companion object {
         private const val ON_DEVICE_INFERENCE = 0
         private const val LLM_API = 1
@@ -38,6 +61,30 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
         }
     }
 
+    private fun getFileNameFromUri(context: Context, uriString: String): String {
+        if (uriString.isBlank()) {
+            return ""
+        }
+        var fileName = ""
+        try {
+            val uri = Uri.parse(uriString)
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        fileName = cursor.getString(nameIndex)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        if (fileName.isBlank()) {
+            fileName = uriString.substringAfterLast('/')
+        }
+        return fileName
+    }
+
     private fun refreshList() {
         val settings = Shaft.sSettings
         val currentMethod = settings.translationMethod
@@ -49,6 +96,7 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
         val currentPrompt = settings.llmPrompt
         val currentIpAddress = settings.llmIpAddress
         val currentModelPath = settings.llmModelPath
+        val modelPathDisplay = getFileNameFromUri(requireContext(), currentModelPath)
         val llmTemperature = settings.llmTemperature
         val modelName = settings.modelName
         val splitTextThreshold = settings.splitTextThreshold
@@ -92,13 +140,14 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
             TabCellHolder(
                 title = getString(R.string.model_path),
                 secondaryTitle = getString(R.string.model_path_desc),
-                extraInfo = currentModelPath.ifEmpty { getString(R.string.not_set) }
-            ).onItemClick { showModelPathInputDialog() }
+                extraInfo = modelPathDisplay.ifEmpty { getString(R.string.not_set) }
+            ).onItemClick {
+                modelPathLauncher.launch(arrayOf("application/octet-stream"))
+            }
         )
         adapter.submitList(items)
     }
 
-    //TODO: fix these dialogs ui
     private fun showTranslationMethodDialog() {
         val methods = arrayOf(getString(R.string.on_device_inference), getString(R.string.local_llm_api))
         val currentMethodValue = Shaft.sSettings.translationMethod
@@ -199,30 +248,6 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
         return isPortValid
     }
 
-    private fun showModelPathInputDialog() {
-        val editText = EditText(requireContext()).apply {
-            setText(Shaft.sSettings.llmModelPath)
-            hint = getString(R.string.model_path_hint)
-            isSingleLine = true
-        }
-        val container = FrameLayout(requireContext()).apply {
-            val padding = (20 * resources.displayMetrics.density).toInt()
-            setPadding(padding, 0, padding, 0)
-            addView(editText)
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle(getString(R.string.model_path))
-            .setView(container)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                Shaft.sSettings.llmModelPath = editText.text.toString()
-                Local.setSettings(Shaft.sSettings)
-                refreshList()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
     private fun showModelNameInputDialog() {
         val editText = EditText(requireContext()).apply {
             setText(Shaft.sSettings.modelName)
@@ -250,8 +275,9 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
     private fun showSplitTextThresholdDialog() {
         val editText = EditText(requireContext()).apply {
             setText(Shaft.sSettings.splitTextThreshold.toString())
-            hint = getString(R.string.split_threshold_hint)
+            hint = "1500"
             isSingleLine = true
+            inputType = InputType.TYPE_CLASS_NUMBER
         }
         val container = FrameLayout(requireContext()).apply {
             val padding = (20 * resources.displayMetrics.density).toInt()
@@ -263,7 +289,8 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
             .setTitle(getString(R.string.split_text_threshold_title))
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                Shaft.sSettings.splitTextThreshold = editText.text.toString().toInt()
+                val threshold = editText.text.toString().toIntOrNull() ?: 1500
+                Shaft.sSettings.splitTextThreshold = threshold
                 Local.setSettings(Shaft.sSettings)
                 refreshList()
             }
@@ -273,8 +300,10 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
 
     private fun showTemperatureInputDialog(){
         val editText = EditText(requireContext()).apply {
-            hint = "0.4"
+            setText(Shaft.sSettings.llmTemperature.toString())
+            hint = "0.1"
             isSingleLine = true
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
         val container = FrameLayout(requireContext()).apply {
             val padding = (20 * resources.displayMetrics.density).toInt()
@@ -286,12 +315,12 @@ class TranslationFragment : PixivFragment(R.layout.fragment_pixiv_list) {
             .setTitle("Temperature")
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                Shaft.sSettings.llmTemperature = editText.text.toString().toDouble()
+                val temperature = editText.text.toString().toDoubleOrNull() ?: 0.1
+                Shaft.sSettings.llmTemperature = temperature
                 Local.setSettings(Shaft.sSettings)
                 refreshList()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
-
 }

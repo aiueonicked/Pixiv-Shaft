@@ -98,6 +98,7 @@ class NovelTextViewModel(
 
             translateRepo.translate(
                 text = originalText,
+                context,
                 onResult = { partialResult ->
                     fullTranslatedText.append(partialResult)
                     val newTextHolders = fullTranslatedText.toString().split('\n').map { line ->
