@@ -2,6 +2,7 @@ package ceui.pixiv.ui.common
 
 import android.animation.Animator
 import android.animation.ValueAnimator
+import android.content.Intent
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -28,6 +29,7 @@ import ceui.loxia.requireAppBackground
 import ceui.pixiv.session.SessionManager
 import ceui.pixiv.ui.background.BackgroundType
 import ceui.pixiv.ui.common.repo.RemoteRepository
+import ceui.pixiv.ui.web.LinkHandler
 import ceui.pixiv.utils.TokenGenerator
 import ceui.pixiv.utils.ppppx
 import com.bumptech.glide.Glide
@@ -106,7 +108,7 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
             list.forEach {
 //                Timber.d("dsadasadsw2 ${gson.toJson(it)}")
             }
-            Timber.d("dsadasadsw2 count: ${list?.size}")
+            Timber.d("dsadasadsw2 count: ${list.size}")
         }
 
         SessionManager.loggedInAccount.observe(this) {
@@ -120,8 +122,7 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
         requireAppBackground().config.observe(this) { config ->
             if (config.type == BackgroundType.RANDOM_FROM_FAVORITES) {
                 bgViewModel.result.observe(this) { loadResult ->
-                    val resp = loadResult?.data ?: return@observe
-                    resp.displayList.getOrNull(0)?.let { illust ->
+                    loadResult?.data?.displayList?.getOrNull(0)?.let { illust ->
                         ObjectPool.update(illust)
                         binding.dimmer.isVisible = true
                         Glide.with(this)
@@ -262,5 +263,20 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
 
     override fun toggleGrayMode() {
         homeViewModel.toggleGrayModeImpl()
+    }
+
+    private fun handleIntentLink(intent: Intent?) {
+        val link = intent?.data?.toString()
+        if (link.isNullOrEmpty()) return
+
+        val navController = findNavController(R.id.nav_host_fragment_activity_main)
+        val linkHandler = LinkHandler(navController)
+        linkHandler.processLink(link)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        handleIntentLink(intent)
     }
 }
