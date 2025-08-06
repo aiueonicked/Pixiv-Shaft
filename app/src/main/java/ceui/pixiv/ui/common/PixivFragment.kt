@@ -76,6 +76,10 @@ import com.scwang.smart.refresh.header.FalsifyFooter
 import com.scwang.smart.refresh.header.FalsifyHeader
 import com.scwang.smart.refresh.header.MaterialHeader
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -348,13 +352,14 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
 
 
     val adapter = CommonPagingAdapter(viewLifecycleOwner)
+    adapter.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
+
     binding.listView.adapter = adapter
 
     val fragmentViewModel: NavFragmentViewModel by viewModels()
     val database = AppDatabase.getAppDatabase(requireContext())
     val seed = fragmentViewModel.fragmentUniqueId
 
-    binding.listView
 
     adapter.addOnPagesUpdatedListener {
         viewModel.recordType?.let { recordType ->
@@ -381,32 +386,36 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
 
     viewLifecycleOwner.lifecycleScope.launch {
         viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            adapter.loadStateFlow.collectLatest { loadStates ->
-                binding.refreshLayout.isRefreshing = loadStates.refresh is LoadState.Loading
-                binding.errorLayout.isVisible = loadStates.refresh is LoadState.Error
-            }
+            adapter.loadStateFlow
+                .map { it.refresh }
+                .distinctUntilChanged()
+                .scan(
+                    Pair<LoadState, LoadState>(
+                        LoadState.NotLoading(endOfPaginationReached = false),
+                        LoadState.NotLoading(endOfPaginationReached = false)
+                    )
+                ) { acc, current ->
+                    acc.second to current
+                }
+                .drop(1)
+                .collectLatest { (previous, current) ->
+                    binding.refreshLayout.isRefreshing = current is LoadState.Loading
+                    binding.errorLayout.isVisible = current is LoadState.Error
+
+                    if (previous is LoadState.Loading && current is LoadState.NotLoading) {
+                        val previousItemCount = adapter.itemCount
+
+                        val observer = ScrollToTopObserver(binding.listView, adapter)
+                        adapter.registerAdapterDataObserver(observer)
+
+                        if (adapter.itemCount != previousItemCount && adapter.itemCount > 0) {
+                            observer.scrollToTop()
+                            adapter.unregisterAdapterDataObserver(observer)
+                        }
+                    }
+                }
         }
     }
-
-//    viewLifecycleOwner.lifecycleScope.launch {
-//        viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-//            adapter.loadStateFlow
-//                .distinctUntilChangedBy { it.refresh } // 只关心 REFRESH 状态变化
-//                .filter { it.refresh is LoadState.NotLoading }
-//                .collect {
-//                    delay(30L)
-//                    if (view != null) {
-//                        val layoutManager = binding.listView.layoutManager
-//                        if (layoutManager is StaggeredGridLayoutManager) {
-//                            layoutManager.invalidateSpanAssignments()
-////                            layoutManager.scrollToPositionWithOffset(0, 0)
-//                        } else {
-////                            listView.scrollToPosition(0)
-//                        }
-//                    }
-//                }
-//        }
-//    }
 
     binding.refreshLayout.setOnRefreshListener {
         adapter.refresh()
