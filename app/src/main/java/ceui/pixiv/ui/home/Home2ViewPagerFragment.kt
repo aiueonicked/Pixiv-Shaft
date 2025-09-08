@@ -9,15 +9,15 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import ceui.lisa.R
-import ceui.lisa.databinding.FragmentHomeViewpagerBinding
+import ceui.lisa.databinding.FragmentHome2ViewpagerBinding
 import ceui.lisa.utils.Common
 import ceui.loxia.RefreshState
-import ceui.loxia.openClashApp
 import ceui.loxia.pushFragment
 import ceui.loxia.requireNetworkStateManager
 import ceui.pixiv.session.SessionManager
@@ -30,10 +30,10 @@ import ceui.pixiv.ui.discover.DiscoverFragment
 import ceui.pixiv.ui.user.following.FollowingViewPagerFragment
 import ceui.pixiv.utils.ppppx
 import ceui.pixiv.utils.setOnClick
-import timber.log.Timber
 
-class HomeViewPagerFragment : PixivFragment(R.layout.fragment_home_viewpager), ViewPagerFragment {
-    private val binding by viewBinding(FragmentHomeViewpagerBinding::bind)
+class Home2ViewPagerFragment : PixivFragment(R.layout.fragment_home_2_viewpager),
+    ViewPagerFragment {
+    private val binding by viewBinding(FragmentHome2ViewpagerBinding::bind)
     private val viewModel by viewModels<HomeViewPagerViewModel>()
 
     private var lastBackPressedTime = 0L
@@ -49,9 +49,7 @@ class HomeViewPagerFragment : PixivFragment(R.layout.fragment_home_viewpager), V
             binding.toolbar.updateLayoutParams {
                 height = insets.top - 10.ppppx
             }
-            binding.bottomInset.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                height = insets.bottom
-            }
+            binding.bottomTab.updatePadding(bottom = insets.bottom + 6.ppppx)
             windowInsets
         }
 

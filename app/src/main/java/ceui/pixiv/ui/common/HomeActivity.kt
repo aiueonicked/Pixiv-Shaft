@@ -13,33 +13,30 @@ import android.view.animation.OvershootInterpolator
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
 import ceui.lisa.R
 import ceui.lisa.database.AppDatabase
 import ceui.lisa.databinding.ActivityHomeBinding
-import ceui.lisa.utils.GlideUrlChild
 import ceui.lisa.utils.Params
 import ceui.loxia.Client
-import ceui.loxia.IllustResponse
-import ceui.loxia.ObjectPool
-import ceui.loxia.RefreshHint
 import ceui.loxia.observeEvent
 import ceui.loxia.requireAppBackground
 import ceui.pixiv.session.SessionManager
+import ceui.pixiv.ui.background.BackgroundConfig
 import ceui.pixiv.ui.background.BackgroundType
 import ceui.pixiv.ui.common.repo.RemoteRepository
 import ceui.pixiv.ui.web.LinkHandler
-import ceui.pixiv.utils.TokenGenerator
 import ceui.pixiv.utils.ppppx
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import kotlin.random.Random
 
 class HomeActivity : AppCompatActivity(), GrayToggler {
 
@@ -47,24 +44,16 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
 
     private val bgViewModel by pixivValueViewModel {
         RemoteRepository {
-            val rest = if (SessionManager.loggedInUid > 0L) {
-                Client.appApi.getUserBookmarkedIllusts(
-                    SessionManager.loggedInUid, Params.TYPE_PUBLIC
-                )
-            } else {
-                val jsonString =
-                    assets.open("walkthrough.json").bufferedReader().use { it.readText() }
-                Gson().fromJson(jsonString, IllustResponse::class.java)
-            }
+            val rest = Client.appApi.getUserBookmarkedIllusts(
+                SessionManager.loggedInUid, Params.TYPE_PUBLIC
+            )
 
             val list = rest.illusts
-            Timber.d("asdsaddsadaw2 ${list.size}")
-            rest.copy(illusts = list.sortedByDescending { illust -> illust.height / illust.width }
-                .subList(0, 50))
+            rest.copy(illusts = list.shuffled())
         }
     }
     private val homeViewModel: HomeViewModel by viewModels {
-        HomeViewModelFactory(TokenGenerator.generateToken())
+        HomeViewModelFactory(assets)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,19 +73,23 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
         graph.setStartDestination(startDestination)
         navController.graph = graph
 
-        if (SessionManager.isLoggedIn) {
-            // ✅ 添加监听 currentDestination
-            navController.addOnDestinationChangedListener { controller, destination, arguments ->
-                val destId = destination.id
-                if (destination.id == R.id.navigation_img_url || destination.id == R.id.navigation_paged_img_urls) {
-                    binding.pageBackground.isVisible = false
-                    binding.dimmer.isVisible = false
-                } else {
-                    binding.pageBackground.isVisible = true
-                    binding.dimmer.isVisible = true
-                }
+        navController.addOnDestinationChangedListener { controller, destination, arguments ->
+            val destId = destination.id
+            if (destination.id == R.id.navigation_img_url || destination.id == R.id.navigation_paged_img_urls) {
+                binding.pageBackground.isVisible = false
+                binding.dimmer.isVisible = false
+            } else {
+                binding.pageBackground.isVisible = true
+                binding.dimmer.isVisible = true
+            }
 
+            if (!SessionManager.isLoggedIn) {
                 homeViewModel.onDestinationChanged(destId)
+            }
+        }
+        if (!SessionManager.isLoggedIn) {
+            homeViewModel.currentScale.observe(this) {
+                animateBackground(it)
             }
         }
         SessionManager.newTokenEvent.observeEvent(this) {
@@ -112,40 +105,82 @@ class HomeActivity : AppCompatActivity(), GrayToggler {
             Timber.d("dsadasadsw2 count: ${list.size}")
         }
 
-        SessionManager.loggedInAccount.observe(this) {
-            bgViewModel.refresh(RefreshHint.PullToRefresh)
-        }
-        homeViewModel.currentScale.observe(this) {
-            animateBackground(it)
-        }
         homeViewModel.grayDisplay.observe(this) { gray -> animateGrayTransition(gray) }
+//
+//        lifecycleScope.launch {
+//            TaskQueueManager.addTasks(
+//                listOf(
+//                    "73205835",
+//                    "57114102",
+//                    "113558722",
+//                    "100339369",
+//                    "111919854",
+//                    "122170012",
+//                ).mapNotNull {
+//                    it.toLongOrNull()?.let {
+//                        LandingPreviewTask(lifecycleScope, it)
+//                    }
+//                })
+//
+//            TaskQueueManager.startProcessing()
+//        }
 
-        requireAppBackground().config.observe(this) { config ->
-            if (config.type == BackgroundType.RANDOM_FROM_FAVORITES) {
-                bgViewModel.result.observe(this) { loadResult ->
-                    loadResult?.data?.displayList?.getOrNull(
-                        if (SessionManager.loggedInUid > 0) 0 else Random.nextInt(
-                            60
-                        )
-                    )?.let { illust ->
-                        ObjectPool.update(illust)
-                        binding.dimmer.isVisible = true
-                        Glide.with(this)
-                            .load(GlideUrlChild(illust.image_urls?.large))
-//                            .apply(bitmapTransform(BlurTransformation(15, 3)))
-                            .transition(withCrossFade())
-                            .into(binding.pageBackground)
-                    }
-                }
-            } else if (config.type == BackgroundType.SPECIFIC_ILLUST || config.type == BackgroundType.LOCAL_FILE) {
-                binding.dimmer.isVisible = true
+        SessionManager.loggedInAccount.observe(this) { account ->
+            if (account.access_token?.isNotEmpty() == true) {
+                homeViewModel.endTask()
+            }
+        }
+
+        binding.dimmer.isVisible = true
+        val appBackground = requireAppBackground()
+
+        if (SessionManager.loggedInUid > 0L) {
+            binding.pageBackground2.isVisible = false
+            appBackground.config.observe(this) { config ->
                 Glide.with(this)
                     .load(config.localFileUri)
                     .transition(withCrossFade())
                     .into(binding.pageBackground)
             }
+        } else {
+            binding.pageBackground2.isVisible = true
+            homeViewModel.startTask()
+            homeViewModel.landingBackgroundFile.observe(this) { file ->
+                val (fadeOutView, fadeInView) = if (showingFirst) {
+                    binding.pageBackground to binding.pageBackground2
+                } else {
+                    binding.pageBackground2 to binding.pageBackground
+                }
+
+                appBackground.updateConfig(
+                    BackgroundConfig(
+                        BackgroundType.SPECIFIC_ILLUST,
+                        localFileUri = file.toUri().toString()
+                    )
+                )
+
+                Glide.with(this)
+                    .load(file)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .skipMemoryCache(false)
+                    .into(fadeInView)
+
+                fadeOutView.animate()
+                    .alpha(0f)
+                    .setDuration(2000L)
+                    .start()
+
+                fadeInView.animate()
+                    .alpha(1f)
+                    .setDuration(2000L)
+                    .start()
+
+                showingFirst = !showingFirst
+            }
         }
     }
+
+    private var showingFirst = true
 
     private fun animateBackground(scale: Float) {
         binding.pageBackground.animate()

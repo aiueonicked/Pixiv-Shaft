@@ -10,6 +10,7 @@ import ceui.lisa.database.AppDatabase
 import ceui.lisa.models.ModelObject
 import ceui.pixiv.db.GeneralEntity
 import ceui.pixiv.db.RemoteKey
+import timber.log.Timber
 
 @OptIn(ExperimentalPagingApi::class)
 class PagingRemoteMediator<ObjectT : ModelObject>(
@@ -26,28 +27,34 @@ class PagingRemoteMediator<ObjectT : ModelObject>(
             val generalDao = db.generalDao()
             val remoteKeyDao = db.remoteKeyDao()
 
-            val cacheTimeoutMs = 5 * 60 * 1000L // 5分钟
-            val now = System.currentTimeMillis()
+//            val cacheTimeoutMs = 5 * 60 * 1000L // 5分钟
+//            val now = System.currentTimeMillis()
 
             val remoteKey = remoteKeyDao.getRemoteKey(recordType)
-            val shouldSkipNetwork = if (loadType == LoadType.REFRESH) {
-                remoteKey?.lastUpdatedTime?.let {
-                    now - it < cacheTimeoutMs
-                } ?: false
-            } else {
-                false
-            }
-
-            if (shouldSkipNetwork) {
-                return MediatorResult.Success(endOfPaginationReached = false)
-            }
+//            val shouldSkipNetwork = if (loadType == LoadType.REFRESH) {
+//                remoteKey?.lastUpdatedTime?.let {
+//                    now - it < cacheTimeoutMs
+//                } ?: false
+//            } else {
+//                false
+//            }
+//
+//            if (shouldSkipNetwork) {
+//                return MediatorResult.Success(endOfPaginationReached = false)
+//            }
 
             val nextPageUrl = when (loadType) {
                 LoadType.REFRESH -> null
                 LoadType.PREPEND -> return MediatorResult.Success(endOfPaginationReached = true)
                 LoadType.APPEND -> {
-                    remoteKey?.nextPageUrl
-                        ?: return MediatorResult.Success(endOfPaginationReached = true)
+                    val url = remoteKey?.nextPageUrl
+                    if (url != null) {
+                        Timber.d("sdadsadsadsaw2 bb ${url}")
+                        url
+                    } else {
+                        Timber.d("sdadsadsadsaw2 cc")
+                        return MediatorResult.Success(endOfPaginationReached = true)
+                    }
                 }
             }
 
