@@ -53,7 +53,6 @@ import ceui.loxia.findActionReceiverOrNull
 import ceui.loxia.getHumanReadableMessage
 import ceui.loxia.launchSuspend
 import ceui.loxia.observeEvent
-import ceui.loxia.openClashApp
 import ceui.loxia.pushFragment
 import ceui.loxia.requireNetworkStateManager
 import ceui.pixiv.paging.CommonPagingAdapter
@@ -376,12 +375,33 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
         }
     }
 
-    binding.openVpn.setOnClick {
-        openClashApp(requireContext())
+    val networkStateManager = requireNetworkStateManager()
+    networkStateManager.canAccessGoogle.observe(viewLifecycleOwner) { canAccessGoogle ->
+        if (canAccessGoogle) {
+            binding.errorText.text = getString(R.string.string_48)
+        } else {
+            binding.errorText.text = getString(R.string.no_internet_connection)
+        }
+        binding.errorLayout.isVisible = !canAccessGoogle
     }
-    requireNetworkStateManager().canAccessGoogle.observe(viewLifecycleOwner) { canAccessGoogle ->
-        binding.openVpn.isVisible = !canAccessGoogle
-        binding.errorRetryButton.isVisible = canAccessGoogle
+
+    binding.errorRetryButton.setOnClick {
+        if (networkStateManager.canAccessGoogle.value == true) {
+            viewModel.refresh()
+        } else {
+            networkStateManager.checkIfCanAccessGoogle()
+        }
+    }
+
+    viewLifecycleOwner.lifecycleScope.launch {
+        viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            adapter.loadStateFlow
+                .map { it.refresh }
+                .collectLatest { current ->
+                    binding.refreshLayout.isRefreshing = current is LoadState.Loading
+                    binding.errorLayout.isVisible = current is LoadState.Error
+                }
+        }
     }
 
     viewLifecycleOwner.lifecycleScope.launch {
@@ -399,9 +419,6 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
                 }
                 .drop(1)
                 .collectLatest { (previous, current) ->
-                    binding.refreshLayout.isRefreshing = current is LoadState.Loading
-                    binding.errorLayout.isVisible = current is LoadState.Error
-
                     if (previous is LoadState.Loading && current is LoadState.NotLoading) {
                         val previousItemCount = adapter.itemCount
 
@@ -440,6 +457,17 @@ fun Fragment.setUpRefreshState(
 
     binding.refreshLayout.setEnableRefresh(false)
     binding.refreshLayout.setEnableLoadMore(false)
+
+    val networkStateManager = requireNetworkStateManager()
+
+    networkStateManager.canAccessGoogle.observe(viewLifecycleOwner) { canAccessGoogle ->
+        if (canAccessGoogle) {
+            binding.errorText.text = getString(R.string.string_48)
+        } else {
+            binding.errorText.text = getString(R.string.no_internet_connection)
+        }
+        binding.errorLayout.isVisible = !canAccessGoogle
+    }
 
     viewModel.refreshState.observe(viewLifecycleOwner) { state ->
         if (state !is RefreshState.LOADING) {
@@ -480,10 +508,10 @@ fun Fragment.setUpRefreshState(
         }
         binding.errorLayout.isVisible = state is RefreshState.ERROR
         binding.errorRetryButton.setOnClick {
-            if (requireNetworkStateManager().canAccessGoogle.value == true) {
+            if (networkStateManager.canAccessGoogle.value == true) {
                 viewModel.refresh(RefreshHint.ErrorRetry)
             } else {
-                openClashApp(ctx)
+                networkStateManager.checkIfCanAccessGoogle()
             }
         }
         if (state is RefreshState.ERROR) {

@@ -778,4 +778,6 @@
     <string name="description">简介</string>
     <string name="main_text">正文</string>
     <string name="browse_history_count">共%d条记录</string>
+    <string name="no_internet_connection">无网络连接</string>
+    <string name="enable_vpn">Enable VPN</string>
 </resources>
