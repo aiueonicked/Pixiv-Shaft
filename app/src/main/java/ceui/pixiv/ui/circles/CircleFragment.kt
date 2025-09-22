@@ -29,6 +29,7 @@ import ceui.pixiv.ui.search.SearchViewModel
 import ceui.pixiv.utils.ppppx
 import ceui.pixiv.utils.setOnClick
 import ceui.pixiv.widgets.setUpWith
+import ceui.pixiv.widgets.setupVerticalAwareViewPager2
 import com.blankj.utilcode.util.BarUtils
 import com.scwang.smart.refresh.header.MaterialHeader
 
@@ -37,7 +38,7 @@ class CircleFragment : TitledViewPagerFragment(R.layout.fragment_circle) {
     private val binding by viewBinding(FragmentCircleBinding::bind)
     private val args by navArgs<CircleFragmentArgs>()
     private val searchViewModel by constructVM({ args.keyword }) { word ->
-        SearchViewModel(word)
+        SearchViewModel(false, word)
     }
     private val viewModel by pixivValueViewModel(
         argsProducer = { args.keyword },
@@ -48,6 +49,7 @@ class CircleFragment : TitledViewPagerFragment(R.layout.fragment_circle) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         searchViewModel
+        setupVerticalAwareViewPager2(binding.circleViewPager)
         val tabLayoutList = binding.tabLayoutList
         binding.naviTitle.text = args.keyword
         binding.refreshLayout.setOnRefreshListener {

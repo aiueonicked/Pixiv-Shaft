@@ -780,4 +780,5 @@
     <string name="browse_history_count">共%d条记录</string>
     <string name="no_internet_connection">无网络连接</string>
     <string name="enable_vpn">Enable VPN</string>
+    <string name="parse_link">解析链接</string>
 </resources>

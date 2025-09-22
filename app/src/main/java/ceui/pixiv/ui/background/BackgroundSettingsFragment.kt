@@ -7,9 +7,11 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.map
 import ceui.lisa.R
 import ceui.lisa.databinding.FragmentPixivListBinding
+import ceui.lisa.utils.Params
 import ceui.loxia.pushFragment
 import ceui.loxia.requireAppBackground
 import ceui.pixiv.ui.common.ListMode
@@ -17,6 +19,7 @@ import ceui.pixiv.ui.common.PixivFragment
 import ceui.pixiv.ui.common.TabCellHolder
 import ceui.pixiv.ui.common.setUpCustomAdapter
 import ceui.pixiv.ui.common.viewBinding
+import com.jaredrummler.android.colorpicker.ColorPickerDialog
 
 class BackgroundSettingsFragment : PixivFragment(R.layout.fragment_pixiv_list) {
 
@@ -56,7 +59,20 @@ class BackgroundSettingsFragment : PixivFragment(R.layout.fragment_pixiv_list) {
                     showGreenDone = true,
                     selected = config.map { it.type == BackgroundType.LOCAL_FILE }).onItemClick {
                     openSystemGallery()
-                }
+                },
+                TabCellHolder(
+                    "纯色背景",
+                    showGreenDone = true,
+                    selected = config.map { it.type == BackgroundType.COLOR }
+                ).onItemClick {
+                    ColorPickerDialog.newBuilder()
+                        .setDialogId(Params.DIALOG_NOVEL_BG_COLOR)
+                        .setColor(
+                            config.value?.colorHexString?.toColorInt()
+                                ?: resources.getColor(R.color.novel_holder)
+                        )
+                        .show(requireActivity())
+                },
             )
         )
     }

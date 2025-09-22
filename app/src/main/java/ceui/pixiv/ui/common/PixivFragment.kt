@@ -36,6 +36,7 @@ import ceui.lisa.utils.Common
 import ceui.lisa.utils.Params
 import ceui.lisa.utils.ShareIllust
 import ceui.lisa.view.LinearItemDecoration
+import ceui.lisa.view.LinearItemOnlyTopDecoration
 import ceui.lisa.view.StaggeredGridSpacingItemDecoration
 import ceui.loxia.Article
 import ceui.loxia.Client
@@ -59,6 +60,7 @@ import ceui.pixiv.paging.CommonPagingAdapter
 import ceui.pixiv.paging.PagingViewModel
 import ceui.pixiv.ui.chats.RedSectionHeaderHolder
 import ceui.pixiv.ui.circles.CircleFragmentArgs
+import ceui.pixiv.ui.detail.ArtworkViewPagerFragment
 import ceui.pixiv.ui.detail.ArtworkViewPagerFragmentArgs
 import ceui.pixiv.ui.detail.ArtworksMap
 import ceui.pixiv.ui.detail.IllustSeriesFragmentArgs
@@ -246,6 +248,9 @@ open class PixivFragment(layoutId: Int) : Fragment(layoutId),
             if (novel != null) {
                 ArtworksMap.store[fragmentViewModel.fragmentUniqueId] = listOf(novelId)
                 ObjectPool.update(novel)
+                novel.user?.let { user ->
+                    ObjectPool.update(user)
+                }
                 onClickNovel(novel.id)
             }
         }
@@ -257,6 +262,9 @@ open class PixivFragment(layoutId: Int) : Fragment(layoutId),
             if (illust != null) {
                 ArtworksMap.store[fragmentViewModel.fragmentUniqueId] = listOf(illustId)
                 ObjectPool.update(illust)
+                illust.user?.let { user ->
+                    ObjectPool.update(user)
+                }
                 onClickIllust(illust.id)
             }
         }
@@ -305,7 +313,7 @@ interface HomeTabContainer : ViewPagerFragment {
 
 fun Fragment.setUpToolbar(binding: LayoutToolbarBinding, content: ViewGroup) {
     val parentFrag = parentFragment
-    if (parentFrag is ViewPagerFragment) {
+    if (parentFrag is ViewPagerFragment && parentFrag !is ArtworkViewPagerFragment) {
         binding.toolbarLayout.isVisible = false
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -400,6 +408,10 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
                 .collectLatest { current ->
                     binding.refreshLayout.isRefreshing = current is LoadState.Loading
                     binding.errorLayout.isVisible = current is LoadState.Error
+
+                    val isListEmpty = adapter.itemCount == 0
+                    binding.emptyLayout.isVisible =
+                        current is LoadState.NotLoading && isListEmpty
                 }
         }
     }
@@ -469,6 +481,13 @@ fun Fragment.setUpRefreshState(
         binding.errorLayout.isVisible = !canAccessGoogle
     }
 
+    binding.errorRetryButton.setOnClick {
+        if (networkStateManager.canAccessGoogle.value == true) {
+            viewModel.refresh(RefreshHint.ErrorRetry)
+        } else {
+            networkStateManager.checkIfCanAccessGoogle()
+        }
+    }
     viewModel.refreshState.observe(viewLifecycleOwner) { state ->
         if (state !is RefreshState.LOADING) {
             binding.refreshLayout.finishRefresh()
@@ -507,13 +526,6 @@ fun Fragment.setUpRefreshState(
             binding.progressCircular.hideProgress()
         }
         binding.errorLayout.isVisible = state is RefreshState.ERROR
-        binding.errorRetryButton.setOnClick {
-            if (networkStateManager.canAccessGoogle.value == true) {
-                viewModel.refresh(RefreshHint.ErrorRetry)
-            } else {
-                networkStateManager.checkIfCanAccessGoogle()
-            }
-        }
         if (state is RefreshState.ERROR) {
             binding.errorText.text = state.exception.getHumanReadableMessage(ctx)
         }
@@ -559,6 +571,12 @@ fun Fragment.setUpLayoutManager(listView: RecyclerView, listMode: Int = ListMode
     } else if (listMode == ListMode.VERTICAL) {
         listView.layoutManager = LinearLayoutManager(ctx)
         listView.addItemDecoration(LinearItemDecoration(18.ppppx))
+    } else if (listMode == ListMode.VERTICAL_SEARCH_SUGGESTION) {
+        listView.layoutManager = LinearLayoutManager(ctx)
+        listView.addItemDecoration(LinearItemOnlyTopDecoration(8.ppppx))
+    } else if (listMode == ListMode.VERTICAL_NOVEL) {
+        listView.layoutManager = LinearLayoutManager(ctx)
+        listView.addItemDecoration(LinearItemDecoration(6.ppppx))
     } else if (listMode == ListMode.VERTICAL_COMMENT) {
         listView.layoutManager = LinearLayoutManager(requireContext())
         listView.addItemDecoration(
