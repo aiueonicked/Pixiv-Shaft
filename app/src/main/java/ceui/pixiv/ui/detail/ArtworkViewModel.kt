@@ -19,11 +19,13 @@ import ceui.pixiv.ui.common.DataSource
 import ceui.pixiv.ui.common.HoldersViewModel
 import ceui.pixiv.ui.common.ListItemHolder
 import ceui.pixiv.ui.common.LoadingHolder
+import ceui.pixiv.ui.task.DownloadGifZipTask
+import ceui.pixiv.ui.task.GifResourceTask
+import ceui.pixiv.ui.task.GifState
 import ceui.pixiv.ui.task.TaskPool
 import ceui.pixiv.ui.user.UserPostHolder
 import ceui.pixiv.ui.works.getGalleryHolders
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,6 +37,9 @@ class ArtworkViewModel(
 
     private val _illustLiveData = ObjectPool.get<Illust>(illustId)
     val illustLiveData: LiveData<Illust> = _illustLiveData
+
+    private val _gifState = MutableLiveData<GifState>(GifState.FetchGifResponse)
+    val gifState: LiveData<GifState> = _gifState
 
 
     val galleryHolders = MutableLiveData<List<ListItemHolder>>()
@@ -108,14 +113,26 @@ class ArtworkViewModel(
         }
 
 
-        galleryHolders.value = getGalleryHolders(illust, MainScope(), taskPool) ?: listOf()
+//        galleryHolders.value = getGalleryHolders(illust, MainScope(), taskPool) ?: listOf()
 
         val result = mutableListOf<ListItemHolder>()
-        result.add(RedSectionHeaderHolder(context.getString(R.string.title)))
+
+        if (illust.isGif()) {
+            viewModelScope.launch {
+                val gifResponse =
+                    GifResourceTask(illustId).awaitResult()
+                DownloadGifZipTask(illustId, gifResponse, _gifState).awaitResult()
+            }
+            result.add(GifHolder(illust, _gifState))
+        } else {
+            result.addAll(getGalleryHolders(illust, taskPool) ?: listOf())
+        }
+
+        result.add(RedSectionHeaderHolder("标题"))
         result.add(ArtworkInfoHolder(illustId))
         result.add(RedSectionHeaderHolder(context.getString(R.string.string_432)))
         result.add(UserInfoHolder(illust.user?.id ?: 0L))
-        result.add(RedSectionHeaderHolder(context.getString(R.string.main_text)))
+        result.add(RedSectionHeaderHolder("简介"))
         result.add(ArtworkCaptionHolder(illustId))
         result.add(
             RedSectionHeaderHolder(

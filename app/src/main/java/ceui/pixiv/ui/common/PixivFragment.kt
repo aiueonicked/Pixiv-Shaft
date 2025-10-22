@@ -55,6 +55,7 @@ import ceui.loxia.getHumanReadableMessage
 import ceui.loxia.launchSuspend
 import ceui.loxia.observeEvent
 import ceui.loxia.pushFragment
+import ceui.loxia.requireEntityWrapper
 import ceui.loxia.requireNetworkStateManager
 import ceui.pixiv.paging.CommonPagingAdapter
 import ceui.pixiv.paging.PagingViewModel
@@ -66,12 +67,14 @@ import ceui.pixiv.ui.detail.ArtworksMap
 import ceui.pixiv.ui.detail.IllustSeriesFragmentArgs
 import ceui.pixiv.ui.novel.NovelSeriesActionReceiver
 import ceui.pixiv.ui.novel.NovelSeriesFragmentArgs
+import ceui.pixiv.ui.novel.NovelTextFragmentArgs
 import ceui.pixiv.ui.user.UserActionReceiver
 import ceui.pixiv.ui.user.UserFragmentArgs
 import ceui.pixiv.ui.web.WebFragmentArgs
 import ceui.pixiv.utils.ppppx
 import ceui.pixiv.utils.setOnClick
 import ceui.pixiv.widgets.TagsActionReceiver
+import ceui.pixiv.widgets.alertYesOrCancel
 import com.scwang.smart.refresh.footer.ClassicsFooter
 import com.scwang.smart.refresh.header.FalsifyFooter
 import com.scwang.smart.refresh.header.FalsifyHeader
@@ -220,6 +223,7 @@ open class PixivFragment(layoutId: Int) : Fragment(layoutId),
                 ).toBundle()
             )
         }
+        requireEntityWrapper().visitTag(requireContext(), tag)
     }
 
     override fun onClickArticle(article: Article) {
@@ -233,11 +237,9 @@ open class PixivFragment(layoutId: Int) : Fragment(layoutId),
 
     override fun onClickNovel(novelId: Long) {
         pushFragment(
-            R.id.navigation_viewpager_artwork,
-            ArtworkViewPagerFragmentArgs(
-                fragmentViewModel.fragmentUniqueId,
+            R.id.navigation_novel_text,
+            NovelTextFragmentArgs(
                 novelId,
-                ObjectType.NOVEL
             ).toBundle()
         )
     }
@@ -357,6 +359,13 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
     setUpToolbar(binding.toolbarLayout, binding.listView)
     setUpLayoutManager(binding.listView, listMode)
 
+    val context = requireContext()
+    viewModel.repo().errorEvent.observeEvent(viewLifecycleOwner) { ex ->
+        launchSuspend {
+            alertYesOrCancel(ex.getHumanReadableMessage(context))
+        }
+    }
+
 
     val adapter = CommonPagingAdapter(viewLifecycleOwner)
     adapter.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
@@ -364,7 +373,7 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
     binding.listView.adapter = adapter
 
     val fragmentViewModel: NavFragmentViewModel by viewModels()
-    val database = AppDatabase.getAppDatabase(requireContext())
+    val database = AppDatabase.getAppDatabase(context)
     val seed = fragmentViewModel.fragmentUniqueId
 
 
@@ -407,7 +416,13 @@ fun <ObjectT : ModelObject> Fragment.setUpPagedList(
                 .map { it.refresh }
                 .collectLatest { current ->
                     binding.refreshLayout.isRefreshing = current is LoadState.Loading
-                    binding.errorLayout.isVisible = current is LoadState.Error
+
+
+                    if (adapter.snapshot().isNotEmpty()) {
+                        binding.errorLayout.isVisible = false
+                    } else {
+                        binding.errorLayout.isVisible = current is LoadState.Error
+                    }
 
                     val isListEmpty = adapter.itemCount == 0
                     binding.emptyLayout.isVisible =
@@ -517,7 +532,6 @@ fun Fragment.setUpRefreshState(
         } else {
             binding.refreshLayout.setEnableLoadMore(false)
         }
-        binding.cacheApplying.isVisible = state is RefreshState.FETCHING_LATEST
         val shouldShowLoading = state is RefreshState.LOADING
         binding.loadingLayout.isVisible = shouldShowLoading
         if (shouldShowLoading) {
@@ -525,9 +539,14 @@ fun Fragment.setUpRefreshState(
         } else {
             binding.progressCircular.hideProgress()
         }
-        binding.errorLayout.isVisible = state is RefreshState.ERROR
-        if (state is RefreshState.ERROR) {
-            binding.errorText.text = state.exception.getHumanReadableMessage(ctx)
+
+        if ((binding.listView.adapter?.itemCount ?: 0) > 0) {
+            binding.errorLayout.isVisible = false
+        } else {
+            binding.errorLayout.isVisible = state is RefreshState.ERROR
+            if (state is RefreshState.ERROR) {
+                binding.errorText.text = state.exception.getHumanReadableMessage(ctx)
+            }
         }
     }
     if (viewModel is HoldersContainer) {

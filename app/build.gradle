@@ -12,8 +12,8 @@ android {
 
 
     defaultConfig {
-        applicationId "ceui.lisa.pixiv"
-        minSdkVersion 23
+        applicationId "ceui.pixiv"
+        minSdkVersion 24
         targetSdkVersion 36
         versionCode 550
         versionName "5.0.18"
@@ -32,15 +32,21 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
-            buildConfigField "boolean", "IS_DEBUG_MODE", "true" // 在 debug 模式下为 true
+            buildConfigField "boolean", "IS_DEBUG_MODE", "true"
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+
+            applicationIdSuffix ".dshaft"
+            resValue "string", "app_name", "Shaft (Debug)"
         }
         release {
             minifyEnabled false
-            buildConfigField "boolean", "IS_DEBUG_MODE", "false" // 在 release 模式下为 false
+            buildConfigField "boolean", "IS_DEBUG_MODE", "false"
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+
+            applicationIdSuffix ".shaft"
+            resValue "string", "app_name", "Shaft"
         }
     }
 
@@ -118,6 +124,8 @@ dependencies {
 
     implementation 'com.github.lzyzsd:circleprogress:1.2.1'
 
+    implementation 'com.arthenica:mobile-ffmpeg-video:4.4'
+
     def refresh_version = "3.0.0-alpha"
     implementation "io.github.scwang90:refresh-layout-kernel:$refresh_version"     //核心必须依赖
     implementation "io.github.scwang90:refresh-header-classics:$refresh_version"    //经典刷新头
@@ -125,6 +133,7 @@ dependencies {
     implementation "io.github.scwang90:refresh-header-material:$refresh_version"    //谷歌刷新头
     implementation "io.github.scwang90:refresh-footer-classics:$refresh_version"    //经典加载
 
+    implementation 'com.github.penfeizhou.android.animation:apng:3.0.5'
 
     implementation 'com.rengwuxian.materialedittext:library:2.1.4'
     implementation 'jp.wasabeef:glide-transformations:4.3.0'

@@ -20,41 +20,23 @@ import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
 import ceui.lisa.R
-import ceui.lisa.database.AppDatabase
 import ceui.lisa.databinding.ActivityHomeBinding
-import ceui.lisa.utils.Params
-import ceui.loxia.Client
 import ceui.loxia.observeEvent
 import ceui.loxia.requireAppBackground
 import ceui.pixiv.session.SessionManager
 import ceui.pixiv.ui.background.BackgroundConfig
 import ceui.pixiv.ui.background.BackgroundType
-import ceui.pixiv.ui.common.repo.RemoteRepository
 import ceui.pixiv.ui.web.LinkHandler
 import ceui.pixiv.utils.ppppx
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class HomeActivity : AppCompatActivity(), GrayToggler, ColorPickerDialogListener {
 
     private lateinit var binding: ActivityHomeBinding
-
-    private val bgViewModel by pixivValueViewModel {
-        RemoteRepository {
-            val rest = Client.appApi.getUserBookmarkedIllusts(
-                SessionManager.loggedInUid, Params.TYPE_PUBLIC
-            )
-
-            val list = rest.illusts
-            rest.copy(illusts = list.shuffled())
-        }
-    }
     private val homeViewModel: HomeViewModel by viewModels {
         HomeViewModelFactory(assets)
     }
@@ -99,14 +81,6 @@ class HomeActivity : AppCompatActivity(), GrayToggler, ColorPickerDialogListener
         }
         SessionManager.newTokenEvent.observeEvent(this) {
             triggerOnce()
-        }
-
-        MainScope().launch(Dispatchers.IO) {
-            val list = AppDatabase.getAppDatabase(this@HomeActivity).generalDao().getAll()
-            list.forEach {
-//                Timber.d("dsadasadsw2 ${gson.toJson(it)}")
-            }
-            Timber.d("dsadasadsw2 count: ${list.size}")
         }
 
         homeViewModel.grayDisplay.observe(this) { gray -> animateGrayTransition(gray) }
